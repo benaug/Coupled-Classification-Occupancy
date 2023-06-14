@@ -1,4 +1,4 @@
 # Coupled-Classification-Occupancy
 Coupled Classification Occupancy models and MCMC samplers in nimble. See Chapter 7 of Applied Hierarchical Modeling 2 by Kery and Royle. More description will be added later.
 
-I adapted/expanded the marginalization code from Max Joseph's version written for Stan.
+I adapted/expanded the marginalization code from Max Joseph's version written for Stan. Further, several people contributed to the these models over the years, including Andy Royle (idea originator as best as I can remember), Richard Chandler, Max Joseph, myself, and probably others I am forgetting. But this code and latent sampling scheme is my "flavor" of these models, so I alone take responsibility for everything in this repository.
