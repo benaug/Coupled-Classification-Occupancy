@@ -1,7 +1,6 @@
 #The model in this script is a regular occupancy model where instead of observing "species ID", you observe
-#a categorical covariate. A special case, and perhaps the only interesting one, is that you observe the
-#the enumerated species ID, but with classification error. To improve estimation, you may also have
-#validation data with species IDs subject to classification error with the true ID associated with it
+#a Normally-distributed covariate. To improve estimation, you may also have
+#validation data with Normal covariate data with the true IDs associated with them
 #as might be available from humans. This script assumes the validation data is randomly chosen from the focal
 #survey, but independent validation data may also be used with some modification. An advantage of selecting
 #validation data from the focal survey is that it fixes some z states (and w states for SiteUse versions).
@@ -11,16 +10,13 @@
 #not converge/fully explore the posterior. While the provided sampler will converge/fully explore the posterior,
 #it is increasingly slower as you add more species and can't handle more than 8 or so with decent runtimes.
 
-#This model works with general categorical covariates aside from "species ID", but is set up here to just handle
-#"species ID". You'll see n.levels below. This is set to n.species here because the categorical covaraites are species ID.
-
 library(nimble)
 library(coda)
 
-source("sim.CCoccu.Categorical.R")
+source("sim.CCoccu.Normal.R")
 source("buildNimData.R")
-source("NimbleModel Categorical.R")
-source("Latent Sampler Categorical.R")
+source("NimbleModel Normal.R")
+source("Latent Sampler Normal.R")
 
 n.species <- 3 #species
 J <- 50 #sites
@@ -30,16 +26,31 @@ K2D <- matrix(1,nrow=J,ncol=K) #optional trap operation/effort
 psi <- sample(c(0.2,0.3,0.4),n.species,replace=TRUE) #occupancy probs
 lambda <- sample(c(5,10,15),n.species,replace=TRUE) #detection rates|occupancy
  
-#feature score parameters - n.species x n.levels. Data simulator considers n.levels=n.species
-G.theta <- matrix(c(0.8,0.1,0.1,0.05,0.9,0.05,0.1,0.1,0.8),nrow=n.species,byrow=TRUE)
+#feature score parameters
+G.mu=1:n.species #species feature score means - arbitrarily spacing by species number
+G.sigma=rep(0.75,n.species)#feature score measurement error
+
+#visualize overlap in feature score distributions
+#Only plotting 1st ID cov here for 3 species
+#More overlap, more uncertainty in species ID
+#Can get better discrimination if 1) means further apart and/or 2) sd is smaller
+par(mfrow=c(1,1),ask=FALSE)
+nsims=1000
+sims=matrix(nrow=nsims,ncol=n.species)
+for(i in 1:n.species){
+  sims[,i]=rnorm(nsims,G.mu[i],G.sigma[i])
+}
+library(vioplot)
+vioplot(sims[,1],sims[,2],sims[,3])
+
 
 pObs <- 1 #We might not observe the partial ID covariates for all samples. Only considering all observed in MCMC.
 pKnown <- 0.10 #We might know the true IDs for some samples, e.g. validation samples. If not, set to 0.
 #Data simulator assumes these are selected at random across sites, but can choose them in any way you want.
 
 #simulate data
-data <- sim.CCoccu.Categorical(n.species=n.species,psi=psi,lambda=lambda,K=K,J=J,
-                                     G.theta=G.theta,pObs=pObs,pKnown=pKnown,K2D=K2D)
+data <- sim.CCoccu.Normal(n.species=n.species,psi=psi,lambda=lambda,K=K,J=J,
+                                     G.mu=G.mu,G.sigma=G.sigma,pObs=pObs,pKnown=pKnown,K2D=K2D)
 
 #what is the observed data?
 #1) we know how many detections there were for each trap-occasion, just not which species they are
@@ -53,14 +64,13 @@ head(data$G.occ[data$IDknown==1],10)
 #3) then we have unknown ID samples, where we also know the site and occasion of capture
 head(data$G.site[data$IDknown==0],10)
 head(data$G.occ[data$IDknown==0],10)
-#4) finally, we observe a categorical random variable, in this script we use "species number"
+#4) finally, we observe a Normal random variable
 #we observe this for validated and unvalidated samples
 head(data$G.obs,10)
 
 #format data for nimble
 nimbuild <- buildNimData(data)
 n.samples <- length(data$G.obs)
-n.levels <- ncol(G.theta)
 
 #supply ID inits and data for validated samples
 IDtrue.init <- IDtrue.data <- rep(NA,n.samples)
@@ -69,17 +79,38 @@ IDtrue.init[known.idx] <- data$IDtrue[known.idx]
 IDtrue.data[known.idx] <- data$IDtrue[known.idx]
 unknown.idx <- which(data$IDknown==0) #unvalidated samples
 
-#initializing ID to observed species ID
-IDtrue.init[unknown.idx] <- data$G.obs[unknown.idx]
+if(length(known.idx)==0){ #if no validation samples
+  #initializing ID using kmeans clustering
+  cluster <- kmeans(data$G.obs[unknown.idx],centers=n.species)
+  IDtrue.init[unknown.idx] <- cluster$cluster
+}else{
+  #initializing ID using kmeans clustering, using cluster means of known ID samples
+  centers <- rep(NA,n.species)
+  for(i in 1:n.species){
+    idx <- which(data$IDknown==TRUE&data$IDtrue==i)
+    centers[i] <- mean(data$G.obs[idx])
+  }
+  cluster <- kmeans(data$G.obs[unknown.idx],centers=centers)
+  IDtrue.init[unknown.idx] <- cluster$cluster
+}
+
+#Get G.mu and G.sigma inits consistent with ID inits
+G.mu.init <- G.sigma.init <- rep(NA,n.species)
+for(i in 1:n.species){
+  idx <- which(IDtrue.init==i)
+  G.mu.init[i] <- mean(data$G.obs[idx])
+  G.sigma.init[i] <- sd(data$G.obs[idx])
+}
+G.tau.init <- 1/G.sigma.init^2
 
 #fit model
 constants <- list(n.species=n.species,J=J,K=K,K2D=data$K2D,
-                G.site=data$G.site,G.occ=data$G.occ,n.samples=n.samples,n.levels=n.levels)
-Niminits <- list(z=nimbuild$z.init,IDtrue=IDtrue.init)
+                G.site=data$G.site,G.occ=data$G.occ,n.samples=n.samples)
+Niminits <- list(z=nimbuild$z.init,IDtrue=IDtrue.init,G.mu=G.mu.init,G.tau=G.tau.init)
 Nimdata <- list(y2D=data$y2D,G.obs=data$G.obs,IDtrue=IDtrue.data)
 
 #set parameters to monitor
-parameters <- c('Beta0.lam','Beta0.psi','G.theta','z.counts')
+parameters <- c('Beta0.lam','Beta0.psi','G.mu','G.sigma','z.counts')
 parameters2 <- c('IDtrue')
 #thinning rates
 nt <- 1
@@ -88,7 +119,7 @@ nt2 <- 25 #record fewer iters
 # Build the model, configure the mcmc, and compileConfigure
 start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
-conf <- configureMCMC(Rmodel,monitors=parameters,monitors2=parameters2, thin=nt, thin2=nt2, useConjugacy=FALSE)
+conf <- configureMCMC(Rmodel,monitors=parameters,monitors2=parameters2, thin=nt, thin2=nt2, useConjugacy=TRUE)
 
 #remove z, w, and IDtrue samplers and replace
 #NOTE: If you skip this replacement, you can use the nimble-assigned samplers and see how poorly they perform
@@ -98,7 +129,7 @@ conf$addSampler(target = paste("z[1:",n.species,",1:",J,"]", sep=""),
                 type = 'LatentSampler',
                 control = list(G.site=data$G.site,G.occ=data$G.occ,n.samples=n.samples,n.species=n.species,
                                J=J,K=K,zpossible=nimbuild$zpossible,n.community=nimbuild$n.community,
-                               n.levels=n.levels,plausible.j=nimbuild$plausible.j,maxdet=nimbuild$maxdet,
+                               plausible.j=nimbuild$plausible.j,maxdet=nimbuild$maxdet,
                                G.obs3D=nimbuild$G.obs3D,IDknown3D=nimbuild$IDknown3D,
                                IDtrue3D=nimbuild$IDtrue3D,K2D=K2D,IDknown=data$IDknown),
                 silent = TRUE)
@@ -123,12 +154,14 @@ plot(mcmc(mvSamples[-c(1:burnin1),]))
 #Note! If no validation data is used (or informative priors), you may see label switching
 #The parameter estimates are correct, but it might be hard to tell which species is which
 #using real data (as opposed to simulated data where you can easily determine this).
+#But data-based inits above shoudl prevent label switching in most cases
 
 #Truth
 rowSums(data$z) #number of occupied sites per species
 log(lambda) #beta0.lam
 qlogis(psi) #beta0.psi
-c(G.theta) #classification probability matrix parameters
+G.mu
+G.sigma
 
 #Species ID posteriors
 burnin2 <- 5 #burnin for mvSamples 2 with different thinning rate

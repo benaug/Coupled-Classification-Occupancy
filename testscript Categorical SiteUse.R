@@ -26,24 +26,24 @@ pObs <- 1 #We might not observe the partial ID covariates for all samples. Only 
 pKnown <- 0.10 #We might know the true IDs for some samples, e.g. validation samples. If not, set to 0.
 
 #simulate data
-data <- sim.CCoccu.Categorical.siteUse(n.species=n.species,psi=psi,theta=theta,lambda=lambda,K=K,J=J,
+data <- sim.CCoccu.Categorical.SiteUse(n.species=n.species,psi=psi,theta=theta,lambda=lambda,K=K,J=J,
                                      G.theta=G.theta,pObs=pObs,pKnown=pKnown,K2D=K2D)
 
 #what is the observed data?
 #1) we know how many detections there were for each trap-occasion, just not which species they are
 str(data$y2D)
 #2) we might have known ID samples. Here, they are randomly selected from focal survey, but can be from elsewhere
-data$IDtrue[data$IDknown==1]
+head(data$IDtrue[data$IDknown==1],10)
 #we can link these to a site of detection
-data$G.site[data$IDknown==1]
+head(data$G.site[data$IDknown==1],10)
 #and the occasion of detection
-data$G.occ[data$IDknown==1]
+head(data$G.occ[data$IDknown==1],10)
 #3) then we have unknown ID samples, where we also know the site and occasion of capture
-data$G.site[data$IDknown==0]
-data$G.occ[data$IDknown==0]
+head(data$G.site[data$IDknown==0],10)
+head(data$G.occ[data$IDknown==0],10)
 #4) finally, we observe a categorical random variable, in this script we use "species number"
 #we observe this for validated and unvalidated samples
-data$G.obs
+head(data$G.obs,10)
 
 #format data for nimble
 nimbuild <- buildNimData(data)

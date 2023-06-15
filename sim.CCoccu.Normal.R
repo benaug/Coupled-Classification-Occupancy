@@ -1,8 +1,8 @@
-sim.CCoccu.Categorical.SiteUse <-
-  function(n.species=NA,psi=NA,theta=NA,lambda=NA,lambda.sd=NA,w.sd=NA,
-           K=NA,K2D=NA,J=NA,n.cov=NA,G.theta=NA,
-           pObs=1,pKnown=0){
-    if(nrow(G.theta)!=n.species)stop("G.theta must be of length n.species")
+sim.CCoccu.Normal <-
+  function(n.species=NA,psi.occ=NA,lambda=NA,lambda.sd=NA,K=NA,K2D=NA,J=NA,n.cov=NA,G.mu=NA,
+           G.sigma=NA,pObs=1,pKnown=0){
+    if(length(G.mu)!=n.species)stop("G.mu must be of length n.species")
+    if(length(G.sigma)!=n.species)stop("G.sigma must be of length n.species")
     if(!missing(K2D)){
       print("Using K2D to simulate instead of K")
       if(dim(K2D)[1]!=J||dim(K2D)[2]!=K)stop("K2D must be of dimension J x K")
@@ -22,30 +22,16 @@ sim.CCoccu.Categorical.SiteUse <-
         lambda.use[i,,] <- lambda[i]
       }
     }
-    #get theta, either fixed or random effects
-    theta.use <- matrix(NA,n.species,J)
-    if(!any(is.na(w.sd))){
-      print("Simulating site-level site use random effects on logit scale.")
-      logit.theta <- qlogis(theta)
-      for(i in 1:n.species){
-        theta.use[i,] <- plogis(logit.theta[i]+rnorm(J,0,w.sd[i]))
-      }
-    }else{
-      for(i in 1:n.species){
-        theta.use[i,] <- theta[i]
-      }
-    }
-    
+
     #simulate ecological model data
     z <- matrix(0,nrow=n.species,ncol=J)
-    w <- y.true <- array(0,dim=c(n.species,J,K))
+    y.true <- array(0,dim=c(n.species,J,K))
     for(i in 1:n.species){
       for(j in 1:J){
-        z[i,j] <- rbinom(1,1,psi[i]) #site use
+        z[i,j] <- rbinom(1,1,psi.occ[i]) #site use
         for(k in 1:K){
           if(K2D[j,k]>0){ #site-occasion operation
-            w[i,j,k] <- rbinom(1,1,theta.use[i,j]*z[i,j]) #site visitation|site use
-            if(w[i,j,k]==1){
+            if(z[i,j]==1){
               y.true[i,j,k] <- rpois(1,lambda.use[i,j,k]*K2D[j,k]) #detection|site visitation
             }
           }
@@ -74,22 +60,16 @@ sim.CCoccu.Categorical.SiteUse <-
     }
     
     #Simulate observed G with measurement error
-    G.obs <- rep(NA,n.samples)
-    for(i in 1:n.species){
-      G.obs[ID==i]=rcat(sum(ID==i),G.theta[i,])
-    }
-    
+    G.obs=rnorm(n.samples,G.mu[ID],G.sigma[ID])
     
     #Simulate missing G.obs values
     rem <- which(rbinom(n.samples,1,pObs)==0)
     G.obs[rem] <- NA
-    
+
     #Simulate known ID samples
     IDknown <- rbinom(n.samples,1,pKnown)
-    parm.vals <- list(psi=psi,theta=theta,
-                      lambda=lambda,lambda.sd=lambda.sd,w.sd=w.sd,G.theta=G.theta,pObs=pObs,pKnown=pKnown)
+    parm.vals <- list(psi.occ=psi.occ,lambda=lambda,lambda.sd=lambda.sd,G.mu=G.mu,G.sigma=G.sigma,pObs=pObs,pKnown=pKnown)
     return(list(y2D=y2D,G.obs=G.obs,G.site=G.site,G.occ=G.occ,IDtrue=ID,IDknown=IDknown, #observed data
-                y.true=y.true,z=z,w=w, #true data
-                n.species=n.species,parm.vals=parm.vals, #sim params
-                K2D=K2D))
+                y.true=y.true,z=z, #true data
+                n.species=n.species,parm.vals=parm.vals,K2D=K2D))
   }
