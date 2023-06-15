@@ -23,6 +23,19 @@ lambda <- sample(c(5,10,15),n.species,replace=TRUE) #detection rates|occupancy
 G.mu=1:n.species #species feature score means - arbitrarily spacing by species number
 G.sigma=rep(0.75,n.species)#feature score measurement error
 
+#visualize overlap in feature score distributions
+#Only plotting 1st ID cov here for 3 species
+#More overlap, more uncertainty in species ID
+#Can get better discrimination if 1) means further apart and/or 2) sd is smaller
+par(mfrow=c(1,1),ask=FALSE)
+nsims=1000
+sims=matrix(nrow=nsims,ncol=n.species)
+for(i in 1:n.species){
+  sims[,i]=rnorm(nsims,G.mu[i],G.sigma[i])
+}
+library(vioplot)
+vioplot(sims[,1],sims[,2],sims[,3])
+
 pObs <- 1 #We might not observe the partial ID covariates for all samples. Only considering all observed in MCMC.
 pKnown <- 0.10 #We might know the true IDs for some samples, e.g. validation samples. If not, set to 0.
 
