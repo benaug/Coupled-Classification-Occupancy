@@ -1,3 +1,11 @@
+#The model in this script is a regular occupancy model where instead of observing "species ID", you observe
+#a categorical covariate. A special case, and perhaps the only interesting one, is that you observe the
+#the enumerated species ID, but with classification error. To improve estimation, you may also have
+#validation data with species IDs subject to classification error with the true ID associated with it
+#as might be available from humans. This script assumes the validation data is randomly chosen from the focal
+#survey, but independent validation data may also be used with some modification. An advantage of selecting
+#validation data from the focal survey is that it fixes some z states (and w states for SiteUse versions).
+
 #This test script uses a sampler for z and sample species ID that samples from their marginal distributions.
 #You can not use the provided sampler and use nimble-assigned samplers, but this approach will often
 #not converge/fully explore the posterior. While the provided sampler will converge/fully explore the posterior,
@@ -26,12 +34,28 @@ lambda <- sample(c(5,10,15),n.species,replace=TRUE) #detection rates|occupancy
 G.theta <- matrix(c(0.8,0.1,0.1,0.05,0.9,0.05,0.1,0.1,0.8),nrow=n.species,byrow=TRUE)
 
 pObs <- 1 #We might not observe the partial ID covariates for all samples. Only considering all observed in MCMC.
-pKnown <- 0.25 #We might know the true IDs for some samples, e.g. validation samples.
+pKnown <- 0.10 #We might know the true IDs for some samples, e.g. validation samples. If not, set to 0.
 #Data simulator assumes these are selected at random across sites, but can choose them in any way you want.
 
 #simulate data
 data <- sim.CCoccu.Categorical(n.species=n.species,psi=psi,lambda=lambda,K=K,J=J,
                                      G.theta=G.theta,pObs=pObs,pKnown=pKnown,K2D=K2D)
+
+#what is the observed data?
+#1) we know how many detections there were for each trap-occasion, just not which species they are
+str(data$y2D)
+#2) we might have known ID samples. Here, they are randomly selected from focal survey, but can be from elsewhere
+data$IDtrue[data$IDknown==1]
+#we can link these to a site of detection
+data$G.site[data$IDknown==1]
+#and the occasion of detection
+data$G.occ[data$IDknown==1]
+#3) then we have unknown ID samples, where we also know the site and occasion of capture
+data$G.site[data$IDknown==0]
+data$G.occ[data$IDknown==0]
+#4) finally, we observe a categorical random variable, in this script we use "species number"
+#we observe this for validated and unvalidated samples
+data$G.obs
 
 #format data for nimble
 nimbuild <- buildNimData(data)
@@ -64,7 +88,7 @@ nt2 <- 25 #record fewer iters
 # Build the model, configure the mcmc, and compileConfigure
 start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
-conf <- configureMCMC(Rmodel,monitors=parameters,monitors2=parameters2, thin=nt, thin2=nt2, useConjugacy=False)
+conf <- configureMCMC(Rmodel,monitors=parameters,monitors2=parameters2, thin=nt, thin2=nt2, useConjugacy=FALSE)
 
 #remove z, w, and IDtrue samplers and replace
 #NOTE: If you skip this replacement, you can use the nimble-assigned samplers and see how poorly they perform
@@ -87,7 +111,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 
 # Run the model
 start.time2 <- Sys.time()
-Cmcmc$run(1000,reset=FALSE) #Can keep extending the run by rerunning this line
+Cmcmc$run(2000,reset=FALSE) #Can keep extending the run by rerunning this line
 end.time <- Sys.time()
 end.time - start.time  # total time for compilation, replacing samplers, and fitting
 end.time - start.time2 # post-compilation run time
@@ -95,6 +119,10 @@ end.time - start.time2 # post-compilation run time
 burnin1 <- 250
 mvSamples  <-  as.matrix(Cmcmc$mvSamples)
 plot(mcmc(mvSamples[-c(1:burnin1),]))
+
+#Note! If no validation data is used (or informative priors), you may see label switching
+#The parameter estimates are correct, but it might be hard to tell which species is which
+#using real data (as opposed to simulated data where you can easily determine this).
 
 #Truth
 rowSums(data$z) #number of occupied sites per species
