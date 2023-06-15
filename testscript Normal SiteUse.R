@@ -34,7 +34,7 @@ for(i in 1:n.species){
   sims[,i]=rnorm(nsims,G.mu[i],G.sigma[i])
 }
 library(vioplot)
-vioplot(sims[,1],sims[,2],sims[,3])
+vioplot(sims[,1],sims[,2],sims[,3],main="Feature Score Distributions",xlab="Species Number")
 
 pObs <- 1 #We might not observe the partial ID covariates for all samples. Only considering all observed in MCMC.
 pKnown <- 0.10 #We might know the true IDs for some samples, e.g. validation samples. If not, set to 0.
