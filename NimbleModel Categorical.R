@@ -23,9 +23,9 @@ NimModel <- nimbleCode({
         log(lambda[i,j,k]) <- Beta0.lam[i]
       }
     }
-    for(k in 1:K){ #likelihood for counts summed over species
+    for(k in 1:K){
       bigLam[j,k] <- sum(lambda[1:n.species,j,k]*z[1:n.species,j])
-      y2D[j,k] ~ dpois(bigLam[j,k]*K2D[j,k])
+      y2D[j,k] ~ dpois(bigLam[j,k]*K2D[j,k]) #likelihood for counts summed over species
       site.prob[1:n.species,j,k] <- (lambda[1:n.species,j,k]*z[1:n.species,j])/max(bigLam[j,k],2.220446e-16)
       #max part to avoid dividing by zero due to numerical underflow
     }

@@ -6,9 +6,10 @@ NimModel <- nimbleCode({
     Beta0.lam[i] ~ dnorm(1,sd=5)
     Beta0.theta[i] ~ dlogis(0,1)
     Beta0.psi[i] ~ dlogis(0,1)
-    G.mu[i] ~ dnorm(0,sd=10) #using normal prior on mu for conjugate sampler
-    G.tau[i] ~ dgamma(0.001,0.001) #using gamma prior on tau for conjugate sampler
-    G.sigma[i] <- sqrt(1/G.tau[i])
+    for(i2 in 1:n.species){
+      log.alpha[i,i2] ~ dnorm(0,2) # priors for log(alpha) parameters
+      G.alpha[i,i2] <- exp(log.alpha[i,i2])
+    }
   }
   
   #--------------------------------------------------------------
@@ -41,6 +42,6 @@ NimModel <- nimbleCode({
   #--------------------------------------------------------------
   for(l in 1:n.samples){
     IDtrue[l] ~ dcat(site.prob[1:n.species,G.site[l],G.occ[l]]) #"ecological prior" for species ID
-    G.obs[l] ~ dnorm(G.mu[IDtrue[l]],tau=G.tau[IDtrue[l]]) #likelihood of species ID
+    G.obs[l,1:n.species] ~ ddirch(G.alpha[IDtrue[l],1:n.species]) #likelihood of species ID
   }
 })# end model

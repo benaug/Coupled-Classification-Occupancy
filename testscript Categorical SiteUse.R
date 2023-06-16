@@ -16,8 +16,8 @@ K <- 10 #occasions
 K2D <- matrix(1,nrow=J,ncol=K) #optional trap operation/effort
 
 psi <- sample(c(0.2,0.3,0.4),n.species,replace=TRUE) #occupancy probs
-theta <- sample(c(0.5,0.6,0.7),n.species,replace=TRUE) #site use probs
-lambda <- sample(c(5,10,15),n.species,replace=TRUE) #detection rates|occupancy
+theta <- sample(c(0.5,0.6,0.7),n.species,replace=TRUE) #site use probs|occupancy
+lambda <- sample(c(5,10,15),n.species,replace=TRUE) #detection rates|site use
  
 #feature score parameters - n.species x n.levels. Data simulator considers n.levels=n.species
 G.theta <- matrix(c(0.8,0.1,0.1,0.05,0.9,0.05,0.1,0.1,0.8),nrow=n.species,byrow=TRUE)
