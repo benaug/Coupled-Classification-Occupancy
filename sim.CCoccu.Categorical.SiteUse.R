@@ -1,5 +1,5 @@
 sim.CCoccu.Categorical.SiteUse <-
-  function(n.species=NA,psi=NA,theta=NA,lambda=NA,lambda.sd=NA,w.sd=NA,
+  function(n.species=NA,psi=NA,theta=NA,lambda=NA,lambda.sd=NA,theta.sd=NA,
            K=NA,K2D=NA,J=NA,n.cov=NA,G.theta=NA,
            pObs=1,pKnown=0){
     if(nrow(G.theta)!=n.species)stop("G.theta must be of length n.species")
@@ -12,7 +12,7 @@ sim.CCoccu.Categorical.SiteUse <-
     #get lambdas, either fixed or random effects
     lambda.use <- array(NA,dim=c(n.species,J,K))
     if(!any(is.na(lambda.sd))){
-      print("Simulating site by occasion encounter random effects on log scale.")
+      print("Simulating species by site by occasion encounter random effects on log scale.")
       log.lambda <- log(lambda)
       for(i in 1:n.species){
         lambda.use[i,,] <- matrix(exp(log.lambda[i]+rnorm(J*K,0,lambda.sd[i])),nrow=J,ncol=K)
@@ -24,11 +24,11 @@ sim.CCoccu.Categorical.SiteUse <-
     }
     #get theta, either fixed or random effects
     theta.use <- matrix(NA,n.species,J)
-    if(!any(is.na(w.sd))){
-      print("Simulating site-level site use random effects on logit scale.")
+    if(!any(is.na(theta.sd))){
+      print("Simulating species by site theta random effects on logit scale.")
       logit.theta <- qlogis(theta)
       for(i in 1:n.species){
-        theta.use[i,] <- plogis(logit.theta[i]+rnorm(J,0,w.sd[i]))
+        theta.use[i,] <- plogis(logit.theta[i]+rnorm(J,0,theta.sd[i]))
       }
     }else{
       for(i in 1:n.species){
@@ -87,7 +87,7 @@ sim.CCoccu.Categorical.SiteUse <-
     #Simulate known ID samples
     IDknown <- rbinom(n.samples,1,pKnown)
     parm.vals <- list(psi=psi,theta=theta,
-                      lambda=lambda,lambda.sd=lambda.sd,w.sd=w.sd,G.theta=G.theta,pObs=pObs,pKnown=pKnown)
+                      lambda=lambda,lambda.sd=lambda.sd,theta.sd=theta.sd,G.theta=G.theta,pObs=pObs,pKnown=pKnown)
     return(list(y2D=y2D,G.obs=G.obs,G.site=G.site,G.occ=G.occ,IDtrue=ID,IDknown=IDknown, #observed data
                 y.true=y.true,z=z,w=w, #true data
                 n.species=n.species,parm.vals=parm.vals, #sim params
