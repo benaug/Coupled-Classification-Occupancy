@@ -1,4 +1,3 @@
-##############known ID - w (site use) and z (occupancy) marginalized out ##################
 NimModel <- nimbleCode({
   #--------------------------------------------------------------
   # priors
