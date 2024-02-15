@@ -65,7 +65,7 @@ head(data$G.occ[data$IDknown==1],10)
 #3) then we have unknown ID samples, where we also know the site and occasion of capture
 head(data$G.site[data$IDknown==0],10)
 head(data$G.occ[data$IDknown==0],10)
-#4) finally, we observe a categorical random variable, in this script we use "species number"
+#4) finally, we observe a Dirichlet random vector
 #we observe this for validated and unvalidated samples
 head(data$G.obs,10)
 
